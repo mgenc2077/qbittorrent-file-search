@@ -1,6 +1,8 @@
 ## Introduction
 This is a simple web application that allows you to search for files in your qBittorrent client. Uses postgresql to cache file names and search (sql LIKE). DB operations run concurrently so it can create load on the docker host.
 
+![qbittorrent-file-search](https://github.com/mgenc2077/qbittorrent-file-search/blob/main/screenshot.png?raw=true)
+
 ## Prequisites
 Docker Compose with Postgre DB
 ```bash

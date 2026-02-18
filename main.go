@@ -55,7 +55,7 @@ func main() {
 	}
 
 	log.Println("Building Database...")
-	//getFiles(db)
+	getFiles(db)
 	log.Println("Database Ready")
 
 	http.HandleFunc("/search", searchEndpoint(db))
