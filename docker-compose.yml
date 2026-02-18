@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:18.1
+    restart: always
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: qbittorrent-file-search
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+
+volumes:
+  pgdata:

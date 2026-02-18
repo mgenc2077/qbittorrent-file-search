@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 
-	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
+	_ "github.com/lib/pq"
+	"golang.org/x/sync/errgroup"
 )
 
 type MainData struct {
@@ -16,6 +18,7 @@ type MainData struct {
 type TorrentsList []string
 
 type File struct {
+	Hash string `json:"hash"`
 	Name string `json:"name"`
 }
 
@@ -34,7 +37,7 @@ func (t *TorrentsList) UnmarshalJSON(b []byte) error {
 
 func main() {
 	// create sqlite db
-	db, err := sql.Open("sqlite3", "./test.db")
+	db, err := sql.Open("postgres", "postgres://admin:example@localhost:5433/qbittorrent-file-search?sslmode=disable")
 	if err != nil {
 		panic(err)
 	}
@@ -46,6 +49,45 @@ func main() {
 		panic(err)
 	}
 
+	getFiles(db)
+
+	http.HandleFunc("/search", searchEndpoint(db))
+
+	http.ListenAndServe(":8080", nil)
+}
+
+func searchEndpoint(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query().Get("query")
+		if query == "" {
+			http.Error(w, "query is required", http.StatusBadRequest)
+			return
+		}
+		rows, err := db.Query("SELECT hash, name FROM files WHERE name LIKE $1", "%"+query+"%")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+		var files []File
+		for rows.Next() {
+			var file File
+			if err := rows.Scan(&file.Hash, &file.Name); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			files = append(files, file)
+		}
+		if err := rows.Err(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(files)
+	}
+}
+
+func getFiles(db *sql.DB) {
 	resp, err := http.Get("http://localhost:21444/api/v2/sync/maindata?rid=67")
 	if err != nil {
 		panic(err)
@@ -59,22 +101,48 @@ func main() {
 	}
 
 	for _, hash := range mainData.Torrents {
-		files, err := http.Get("http://localhost:21444/api/v2/torrents/files?hash=" + hash)
-		if err != nil {
-			panic(err)
-		}
-		defer files.Body.Close()
-		var filesData FilesList
-		err = json.NewDecoder(files.Body).Decode(&filesData)
-		if err != nil {
-			panic(err)
-		}
-		for _, file := range filesData {
-			res, err := db.Exec("INSERT INTO files (hash, name) VALUES (?, ?)", hash, file.Name)
+		ctx := context.Background()
+		g, _ := errgroup.WithContext(ctx)
+		//g.SetLimit(10)
+		g.Go(func() error {
+			files, err := http.Get("http://localhost:21444/api/v2/torrents/files?hash=" + hash)
 			if err != nil {
 				panic(err)
 			}
-			_ = res
+			defer files.Body.Close()
+			var filesData FilesList
+			err = json.NewDecoder(files.Body).Decode(&filesData)
+			if err != nil {
+				panic(err)
+			}
+			ctx2 := context.Background()
+			k, _ := errgroup.WithContext(ctx2)
+			for _, file := range filesData {
+				k.Go(func() error {
+					// Check if file already exists
+					var exists bool
+					err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM files WHERE hash = $1 AND name = $2)", hash, file.Name).Scan(&exists)
+					if err != nil {
+						return err
+					}
+					if exists {
+						return nil
+					}
+					res, err := db.Exec("INSERT INTO files (hash, name) VALUES ($1, $2)", hash, file.Name)
+					if err != nil {
+						return err
+					}
+					_ = res
+					return nil
+				})
+				if err := k.Wait(); err != nil {
+					log.Fatalf("failed to wait for group: %v", err)
+				}
+			}
+			return nil
+		})
+		if err := g.Wait(); err != nil {
+			log.Fatalf("failed to wait for group: %v", err)
 		}
 	}
 }
