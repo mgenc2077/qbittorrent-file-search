@@ -7,9 +7,14 @@ import (
 	"log"
 	"net/http"
 
+	_ "embed"
+
 	_ "github.com/lib/pq"
 	"golang.org/x/sync/errgroup"
 )
+
+//go:embed index.html
+var indexHTML []byte
 
 type MainData struct {
 	Torrents TorrentsList `json:"torrents"`
@@ -49,11 +54,18 @@ func main() {
 		panic(err)
 	}
 
-	getFiles(db)
+	log.Println("Building Database...")
+	//getFiles(db)
+	log.Println("Database Ready")
 
 	http.HandleFunc("/search", searchEndpoint(db))
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write(indexHTML)
+	})
 
-	http.ListenAndServe(":8080", nil)
+	log.Println("Server started on :1182")
+	http.ListenAndServe(":1182", nil)
 }
 
 func searchEndpoint(db *sql.DB) http.HandlerFunc {
