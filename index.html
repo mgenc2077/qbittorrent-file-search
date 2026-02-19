@@ -231,6 +231,12 @@
             }
         }
 
+        .action-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            min-width: 100px;
+        }
+
         /* Responsive */
         @media (max-width: 600px) {
             body {
@@ -276,6 +282,7 @@
                     <tr>
                         <th style="width: 120px;">Hash</th>
                         <th>Name</th>
+                        <th style="width: 140px;">Status</th>
                     </tr>
                 </thead>
                 <tbody id="results">
@@ -322,26 +329,60 @@
                             // Truncate hash for display but keep full for copy
                             const shortHash = file.hash.substring(0, 8) + '...';
 
-                            row.innerHTML = `
-                                <td class="hash-cell" onclick="copyToClipboard('${file.hash}')" title="Click to copy full hash: ${file.hash}">
-                                    ${shortHash}
-                                </td>
-                                <td>${file.name}</td>
-                            `;
+                            const hashTd = document.createElement('td');
+                            hashTd.className = 'hash-cell';
+                            hashTd.onclick = () => copyToClipboard(file.hash);
+                            hashTd.title = `Click to copy full hash: ${file.hash}`;
+                            hashTd.innerText = shortHash;
+
+                            const nameTd = document.createElement('td');
+                            nameTd.innerText = file.name;
+
+                            const actionTd = document.createElement('td');
+                            const btn = document.createElement('button');
+                            btn.className = 'action-btn';
+                            btn.innerText = file.status;
+                            btn.onclick = function () {
+                                enableFile(file.name, btn);
+                            };
+                            actionTd.appendChild(btn);
+
+                            row.appendChild(hashTd);
+                            row.appendChild(nameTd);
+                            row.appendChild(actionTd);
+
                             resultsBody.appendChild(row);
                         });
                         resultsContainer.classList.add('visible');
                     } else {
                         // Optionally show a "no results" message
-                        resultsBody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 2rem; color: var(--text-muted);">No files found matching your query.</td></tr>';
+                        resultsBody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 2rem; color: var(--text-muted);">No files found matching your query.</td></tr>';
                         resultsContainer.classList.add('visible');
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     loading.classList.remove('active');
-                    resultsBody.innerHTML = '<tr><td colspan="2" style="text-align:center; color: #ef4444; padding: 1rem;">An error occurred while searching.</td></tr>';
+                    resultsBody.innerHTML = '<tr><td colspan="3" style="text-align:center; color: #ef4444; padding: 1rem;">An error occurred while searching.</td></tr>';
                     resultsContainer.classList.add('visible');
+                });
+        }
+
+        function enableFile(name, btn) {
+            btn.disabled = true;
+            fetch(`/enable?name=${encodeURIComponent(name)}`, { method: 'POST' })
+                .then(response => {
+                    if (response.ok) {
+                        btn.innerText = 'downloading';
+                    } else {
+                        btn.disabled = false;
+                        alert('Failed to enable file');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    btn.disabled = false;
+                    alert('Error enabling file');
                 });
         }
 

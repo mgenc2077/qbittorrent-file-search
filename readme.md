@@ -3,6 +3,16 @@ This is a simple web application that allows you to search for files in your qBi
 
 ![qbittorrent-file-search](https://github.com/mgenc2077/qbittorrent-file-search/blob/main/screenshot.png?raw=true)
 
+## Features
+- Search for files in your qBittorrent client
+- Cache file names in postgresql
+- Search (sql LIKE)
+- Enable download for files
+
+## Todo
+- Create a dockerfile
+- Add category filter for torrents
+
 ## Prequisites
 Docker Compose with Postgre DB
 ```bash
