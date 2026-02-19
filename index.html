@@ -237,6 +237,33 @@
             min-width: 100px;
         }
 
+        .progress-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .progress-track {
+            flex: 1;
+            height: 6px;
+            background-color: var(--bg-input);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--primary);
+        }
+
+        .progress-text {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            min-width: 3rem;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
         /* Responsive */
         @media (max-width: 600px) {
             body {
@@ -282,6 +309,7 @@
                     <tr>
                         <th style="width: 120px;">Hash</th>
                         <th>Name</th>
+                        <th style="width: 200px;">Progress</th>
                         <th style="width: 140px;">Status</th>
                     </tr>
                 </thead>
@@ -338,6 +366,17 @@
                             const nameTd = document.createElement('td');
                             nameTd.innerText = file.name;
 
+                            const progressTd = document.createElement('td');
+                            const percent = Math.round((file.progress || 0) * 100);
+                            progressTd.innerHTML = `
+                                <div class="progress-wrapper">
+                                    <div class="progress-track">
+                                        <div class="progress-fill" style="width: ${percent}%"></div>
+                                    </div>
+                                    <span class="progress-text">${percent}%</span>
+                                </div>
+                            `;
+
                             const actionTd = document.createElement('td');
                             const btn = document.createElement('button');
                             btn.className = 'action-btn';
@@ -349,6 +388,7 @@
 
                             row.appendChild(hashTd);
                             row.appendChild(nameTd);
+                            row.appendChild(progressTd);
                             row.appendChild(actionTd);
 
                             resultsBody.appendChild(row);
@@ -356,14 +396,14 @@
                         resultsContainer.classList.add('visible');
                     } else {
                         // Optionally show a "no results" message
-                        resultsBody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 2rem; color: var(--text-muted);">No files found matching your query.</td></tr>';
+                        resultsBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 2rem; color: var(--text-muted);">No files found matching your query.</td></tr>';
                         resultsContainer.classList.add('visible');
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     loading.classList.remove('active');
-                    resultsBody.innerHTML = '<tr><td colspan="3" style="text-align:center; color: #ef4444; padding: 1rem;">An error occurred while searching.</td></tr>';
+                    resultsBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: #ef4444; padding: 1rem;">An error occurred while searching.</td></tr>';
                     resultsContainer.classList.add('visible');
                 });
         }
